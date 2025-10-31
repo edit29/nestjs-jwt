@@ -22,12 +22,25 @@ model User {
   @@map("users")
 }
 
+// model ShopCart {
+//   articleNumber String @unique
+//   year String?
+//   price Int @default(0)
+//   description String?
+//   in_stock Int @default(0)
+//   bestseller Boolean @default(false)
+//   tag String @default("UNTYPE")
+//   poster ProductPoster? @relation(fields: [posterId], references: [id])
+//   posterId String? @unique @map("poster_id")
+// }
+
 model Product {
   id String @id @default(uuid()) 
+  articleNumber String @unique
 
   name String
-  year String
-  price String
+  year String?
+  price Int @default(0)
   description String?
 
   in_stock Int @default(0)
@@ -48,14 +61,49 @@ model Product {
 model ProductPoster {
   id String @id @default(uuid())
 
-  url String
+  url String? 
 
   product Product? @relation
+
+  // product ShopCart?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @map("updated_at")
 
   @@map("product_poster")
+}
+
+model Order {
+  id        String     @id @default(uuid())
+  userId    String
+  total     Float
+  currency  String    @default("RUB")
+  status    String    @default("created") // created, paid, shipped, canceled
+  items     OrderItem[]
+  payment   Payment?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  order     Order   @relation(fields: [orderId], references: [id])
+  orderId   String
+  productId String
+  name      String
+  price     Float
+  quantity  Int
+}
+
+model Payment {
+  id                 String  @id @default(uuid())
+  order              Order   @relation(fields: [orderId], references: [id])
+  orderId            String  @unique
+  provider           String
+  providerPaymentId  String
+  amount             Float
+  status             String  // pending, succeeded, failed
+  createdAt          DateTime @default(now())
 }
 
 enum UserRole {

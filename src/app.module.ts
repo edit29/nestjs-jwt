@@ -6,7 +6,9 @@ import { AuthModule } from './auth/auth.module';
 import { ShoppingModule } from './product/shopping-cart.module';
 import { AppService } from './app.service';
 import { AppController } from './app.controller';
-import { ShoppingService } from './product/shopping-cart.service';
+import { ArticleNumberModule } from './article-number/article-number.module';
+import { AuthCartModule } from './auth-cart/auth-cart.module';
+import { CartCheckoutModule } from './cart-checkout/cart-checkout.module';
 
 @Module({
   imports: 
@@ -18,6 +20,9 @@ import { ShoppingService } from './product/shopping-cart.service';
   ShoppingModule,
   BoilerPartsModule,
   AuthModule,
+  ArticleNumberModule,
+  AuthCartModule,
+  CartCheckoutModule,
 ],
   controllers: [AppController],
   providers: [AppService]

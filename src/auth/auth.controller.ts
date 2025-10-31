@@ -70,6 +70,10 @@ export class AuthController {
     return await this.authService.logout(res);
   }
 
+  @ApiOperation({
+    summary: 'Получение собственного id',
+    description: "Возвращает пользователю его id"
+  })
   @Authorization()
   @Get('@me')
   @HttpCode(HttpStatus.OK)

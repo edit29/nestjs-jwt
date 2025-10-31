@@ -16,13 +16,14 @@ export class BoilerPartsService {
           createdAt: "desc",
         },
           select:{
-            id: true,
+            articleNumber: true,
             name: true,
             year: true,
+            in_stock: true,
+            description: true,
             price: true,
             tag: true,
-            bestseller: true
-
+            bestseller: true,
           }
         });
     } 
@@ -37,7 +38,7 @@ export class BoilerPartsService {
                 }
             });
     
-            if(!product || !product.isAvailable) throw new NotFoundException('Фильм не найден ');
+            if(!product || !product.isAvailable) throw new NotFoundException('Товар не найден ');
     
             return product;
         }

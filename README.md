@@ -1,3 +1,67 @@
+# nestjs-jwt (Pracc-JWT2)
+
+This project is a NestJS backend for a small product-selling app. It includes product management, a simple cart, and a checkout endpoint that can send a product card over WhatsApp using Twilio.
+
+## Quick start
+
+1. Copy `.env.sample` to `.env` and fill in the values (Postgres, JWT secret, Twilio credentials):
+
+```powershell
+copy .env.sample .env
+# edit .env
+```
+
+2. Install dependencies:
+
+```powershell
+npm install
+```
+
+3. Generate Prisma client and run migrations (if you use Prisma migrations):
+
+```powershell
+npx prisma generate
+# npx prisma migrate dev --name init
+```
+
+4. Start the app in development mode:
+
+```powershell
+npm run start:dev
+```
+
+5. Test the checkout endpoint (authenticated):
+
+POST /checkout
+
+Body:
+```json
+{
+  "telegramUsername": "@example_user",
+  "message": "Please send me the product card"
+}
+```
+
+Make sure to include an Authorization header with a Bearer JWT from your auth flow.
+
+## Telegram
+
+- If `TELEGRAM_BOT_TOKEN` is set in `.env`, the application will use the Telegram Bot API to send messages to the given username (e.g. `@channelname`).
+- Note: bots cannot message arbitrary users unless the user has started the bot; sending to `@username` works for channels / public groups where the bot is a member/admin.
+
+## Tests
+
+Run unit tests with:
+
+```powershell
+npm test
+```
+
+## Next steps
+
+- Implement payments (Stripe) if you want to accept payments.
+- Add e2e tests for authenticated flows.
+- Add image upload (S3) and send media via WhatsApp.
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
