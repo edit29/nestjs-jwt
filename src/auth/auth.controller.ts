@@ -4,12 +4,14 @@ import { RegisterRequest } from './dto/register.dto';
 import { LoginRequest } from './dto/login.dto';
 import type { Response } from 'express';
 import type { Request } from 'express';
-import { ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthResponse } from './dto/auth.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { Authorization } from './decorators/auth.decorator';
 import { Authorized } from './decorators/authorized.decorator';
 import type { User } from '@prisma/client';
+import { VerifyCodeDto } from './dto/verify-code.dto';
+import { ApiBody } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -29,6 +31,30 @@ export class AuthController {
     @Body() dto:RegisterRequest){
     return await this.authService.register(res, dto);
   }
+
+  @Post('verify-code')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Verify phone code and sign in / register' })
+    @ApiResponse({ status: 200, description: 'Returns access token' })
+    async verifyCode(@Res({ passthrough: true }) res: Response, @Body() dto: VerifyCodeDto) {
+      const user = await this.authService.verifyCode(dto.phone, dto.code);
+      if (!user) return { success: false, message: 'Invalid or expired code' };
+  
+      // Update name if provided
+      if (dto.name) {
+        await (this.authService as any).prisma.user.update({ where: { id: user.id }, data: { name: dto.name } });
+      }
+  
+      return this.authService.authById(res, user.id);
+    }
+
+    @Post('telegram')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Login or register with Telegram Login Widget' })
+    @ApiBody({ description: 'Telegram login payload as received from widget (id, first_name, username, auth_date, hash, ...)' })
+    async telegramLogin(@Res({ passthrough: true }) res: Response, @Body() dto: Record<string, any>){
+      return this.authService.telegramLogin(res, dto);
+    }
 
   
   @ApiOperation({

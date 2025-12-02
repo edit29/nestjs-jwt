@@ -10,9 +10,14 @@ datasource db {
 model User {
   id String @id @default(uuid())
 
-  email String @unique
-  password String
-  name String 
+  email String? @unique
+  password String?
+  name String
+  phone String? @unique
+  telegramId String? @unique
+  telegramUsername String? @unique
+  telegramPhoto String?
+  phoneVerified Boolean @default(false)
 
   role      UserRole @default(USER) // По умолчанию роль USER
 
@@ -33,6 +38,16 @@ model User {
 //   poster ProductPoster? @relation(fields: [posterId], references: [id])
 //   posterId String? @unique @map("poster_id")
 // }
+
+model Lead {
+  id         Int      @id @default(autoincrement())
+  bitrixId   Int      @unique
+  title      String
+  status     String?
+  phone      String?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+}
 
 model Product {
   id String @id @default(uuid()) 
@@ -104,6 +119,21 @@ model Payment {
   amount             Float
   status             String  // pending, succeeded, failed
   createdAt          DateTime @default(now())
+}
+
+model PhoneVerification {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Optional registration/login payload
+  email     String?
+  name      String?
+  password  String?
+
+  @@map("phone_verifications")
 }
 
 enum UserRole {

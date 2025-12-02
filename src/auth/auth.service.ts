@@ -1,15 +1,18 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { RegisterRequest } from './dto/register.dto';
 import { ConfigService } from '@nestjs/config';
 import { hash } from 'argon2';
+import { PhoneAuthService } from '../phone-auth/phone-auth.service';
 import { JwtService } from '@nestjs/jwt'
 import type { JwtPayload } from './interfaces/jwt.interface';
 import { LoginRequest } from './dto/login.dto';
 import { verify } from 'argon2';
 import type { Response } from 'express';
 import type { Request} from 'express';
-import { isDev } from 'src/utilities/is-dev.util';
+import { isDev } from '../utilities/is-dev.util';
+import { randomInt } from 'crypto';
+import { createHmac, createHash } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -18,10 +21,13 @@ export class AuthService {
     private readonly JWT_REFRESH_TOKEN_TTL: string;
 
     private readonly COOKIE_DOMAIN: string;
+    
+    private readonly logger = new Logger(AuthService.name);
 
     constructor(private readonly prismaService: PrismaService, 
                 private readonly configService: ConfigService,
-                private readonly jwtService: JwtService,){
+                private readonly jwtService: JwtService,
+                ){
                     this.JWT_SECRET = configService.getOrThrow<string>('JWT_SECRET_KEY');
                     this.JWT_ACCESS_TOKEN_TTL = configService.getOrThrow<string>('JWT_ACCESS_TOKEN_TTL');
                     this.JWT_REFRESH_TOKEN_TTL = configService.getOrThrow<string>('JWT_REFRESH_TOKEN_TTL');
@@ -29,25 +35,25 @@ export class AuthService {
                 }
     
     async register(res: Response, dto: RegisterRequest){
-        const {name, email, password} = dto;
-            
-        const existUser = await this.prismaService.user.findUnique({
-            where: {
-                email,
-            }
-        })
-        if(existUser){
-            throw new ConflictException('Пользователь с почтой уже существует');
-        };
+        const { name, email, password, phone } = dto;
 
-        const user = await this.prismaService.user.create({
-            data:{
-                name,
-                email,
-                password: await hash(password),
-            },
-        });
-        return this.auth(res, user.id);
+        const existByEmail = await this.prismaService.user.findUnique({ where: { email } });
+        if (existByEmail) {
+            throw new ConflictException('Пользователь с почтой уже существует');
+        }
+
+        const existByPhone = phone ? await this.prismaService.user.findUnique({ where: { phone } }) : null;
+        if (existByPhone) {
+            throw new ConflictException('Пользователь с таким телефоном уже существует');
+        }
+
+        // Hash password and send a verification code with registration payload.
+        const hashed = await hash(password);
+        const user = await this.sendCode(phone, { email, name, password: hashed });
+        this.logger.log(`Verification code was sent`)
+        return `Verification code was sent`;
+
+        // return this.auth(res, user.id);
     }
     async login(res: Response, dto: LoginRequest){
         const { email, password } = dto;
@@ -63,6 +69,10 @@ export class AuthService {
         });
 
         if (!user) {
+            throw new NotFoundException('Пользователь не найден');
+        }
+
+        if (!user.password) {
             throw new NotFoundException('Пользователь не найден');
         }
 
@@ -121,6 +131,138 @@ export class AuthService {
             throw new NotFoundException('Пользователь не найден');
         }
         return user;
+    }
+я
+    // Public wrapper to authenticate by user id and set cookies — used by alternative auth flows
+    async authById(res: Response, id: string){
+        return this.auth(res, id);
+    }
+
+    async sendCode(phone: string, payload?: { email?: string; name?: string; password?: string }) {
+        const code = String(randomInt(100000, 999999));
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    
+        // Store optional registration payload (password should already be hashed by caller)
+        const user = await this.prismaService.phoneVerification.create({
+          data: {
+            phone,
+            code,
+            expiresAt,
+            email: payload?.email,
+            name: payload?.name,
+            password: payload?.password,
+          },
+        });
+    
+        // TODO: integrate with SMS provider (Twilio) to send the code; for now just log
+        this.logger.log(`Verification code for ${phone}: ${code}`);
+        return user;
+      }
+
+    async verifyCode(phone: string, code: string) {
+    const record = await this.prismaService.phoneVerification.findFirst({ where: { phone, code }, orderBy: { createdAt: 'desc' } });
+    if (!record) return null;
+    if (record.expiresAt < new Date()) return null;
+
+    // Remove used codes
+    await this.prismaService.phoneVerification.deleteMany({ where: { phone } });
+
+    // If a user with this phone already exists, mark verified and return
+    let user = await this.prismaService.user.findUnique({ where: { phone } });
+    if (user) {
+      await this.prismaService.user.update({ where: { id: user.id }, data: { phoneVerified: true } });
+      user = await this.prismaService.user.findUnique({ where: { id: user.id } });
+      return user;
+    }
+
+    
+
+    // If the verification record contains registration payload, create user with that data
+    if (record.email || record.password) {
+      const createData: any = {
+        phone,
+        phoneVerified: true,
+        name: record.name ?? record.email ?? phone,
+      };
+      if (record.email) createData.email = record.email;
+      if (record.password) createData.password = record.password; // already hashed by caller
+
+      user = await this.prismaService.user.create({ data: createData });
+      return user;
+    }
+
+    // Fallback: create a simple user with phone as name
+    user = await this.prismaService.user.create({ data: { phone, name: phone, phoneVerified: true } });
+    return user;
+  }
+
+    /**
+     * Authenticate or register a user using Telegram Login Widget data.
+     * Expects the full payload received from Telegram (id, first_name, last_name, username, auth_date, hash, ...)
+     */
+    async telegramLogin(res: Response, payload: Record<string, any>){
+        const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || process.env.TELEGRAM_BOT_TOKEN;
+        if(!botToken) throw new UnauthorizedException('Telegram bot token is not configured');
+
+        const ok = this.verifyTelegramAuth(payload, botToken);
+        if(!ok) throw new UnauthorizedException('Invalid Telegram login data');
+
+        const incomingId = String(payload.id);
+
+        // try to find existing user by telegramId
+        let user = await (this.prismaService as any).user.findUnique({ where: { telegramId: incomingId } });
+
+        if(!user){
+            const name = payload.username ?? (`${payload.first_name ?? ''} ${payload.last_name ?? ''}`.trim() || `telegram_${incomingId}`);
+            user = await (this.prismaService as any).user.create({ data: {
+                name,
+                telegramId: incomingId,
+                telegramUsername: payload.username ?? null,
+                telegramPhoto: payload.photo_url ?? null,
+                phoneVerified: true,
+            } });
+        } else {
+            // update username/photo if changed
+            const newUsername = payload.username ?? null;
+            const newPhoto = payload.photo_url ?? null;
+            const updateData: any = {};
+            if(newUsername && user.telegramUsername !== newUsername) updateData.telegramUsername = newUsername;
+            if(newPhoto && user.telegramPhoto !== newPhoto) updateData.telegramPhoto = newPhoto;
+            if(Object.keys(updateData).length) {
+                await (this.prismaService as any).user.update({ where: { id: user.id }, data: updateData });
+            }
+        }
+
+        return this.authById(res, user.id);
+    }
+
+    private verifyTelegramAuth(payload: Record<string, any>, botToken: string){
+        try{
+            const data = { ...payload } as Record<string, any>;
+            const hash = String(data.hash ?? '');
+            delete data.hash;
+
+            // Build data_check_string according to Telegram docs
+            const keys = Object.keys(data).sort();
+            const dataCheckArr = keys.map(k => `${k}=${data[k]}`);
+            const dataCheckString = dataCheckArr.join('\n');
+
+            // secret_key = sha256(bot_token)
+            const secretKey = createHash('sha256').update(botToken).digest();
+            const hmac = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+            // Optional: check auth_date freshness (1 day)
+            const authDate = Number(payload.auth_date || 0);
+            const now = Math.floor(Date.now() / 1000);
+            if(authDate && Math.abs(now - authDate) > 86400){
+                return false;
+            }
+
+            return hmac === hash;
+        }catch(e){
+            this.logger.error('Failed to verify telegram auth', e as any);
+            return false;
+        }
     }
 
     private auth(res: Response, id: string){

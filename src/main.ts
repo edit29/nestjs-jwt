@@ -6,6 +6,8 @@ import * as session from 'express-session';
 import * as passport from 'passport';
 import { DocumentBuilder } from '@nestjs/swagger';
 import { SwaggerModule } from '@nestjs/swagger/dist';
+import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 
 const PORT  = 3000;
@@ -13,7 +15,13 @@ const HOST = "localhost";
 require('dotenv').config;
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Enable CORS
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
 
   // app.use(
   //   session({

@@ -4,7 +4,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Product, ProductPoster } from '@prisma/client';
 import { BoilerPartsService } from 'src/boiler-parts/boiler-parts.service';
 import { ArticleNumberService } from 'src/article-number/article-number.service';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationService } from '../notification/byTelegramBot/notification.service';
 import { UpdateCartProductDto } from './dto/update-product-cart.dto';
 
 @Injectable()

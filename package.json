@@ -23,6 +23,7 @@
     "@apollo/server": "^5.0.0",
     "@as-integrations/express5": "^1.1.2",
     "@nestjs/apollo": "^13.2.1",
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -33,11 +34,13 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.1.6",
     "@nestjs/sequelize": "^11.0.1",
+    "@nestjs/serve-static": "^5.0.4",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.6",
     "@prisma/client": "^6.16.3",
     "@prisma/studio": "^0.511.0",
+    "axios": "^1.5.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -48,6 +51,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.2",
     "graphql": "^16.11.0",
+    "input": "^1.0.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -56,10 +60,9 @@
     "rxjs": "^7.8.1",
     "sequelize-typescript": "^2.1.6",
     "socket.io": "^4.8.1",
-    "typeorm": "^0.3.26"
-    ,
+    "telegram": "^2.26.22",
     "twilio": "^4.15.0",
-    "axios": "^1.5.0"
+    "typeorm": "^0.3.26"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

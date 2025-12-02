@@ -32,4 +32,12 @@ export class RegisterRequest {
     @MaxLength(128, {message: "макс 128 символов"})
     @MinLength(8, {message: "Мин длина 8 символов"})
     password: string;
+
+    @ApiProperty({
+        description: 'Номер телефона в международном формате',
+        example: '+71234567890',
+    })
+    @IsString({ message: 'Телефон должен быть строкой' })
+    @IsNotEmpty({ message: 'Телефон обязателен' })
+    phone: string;
 }
